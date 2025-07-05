@@ -11,6 +11,7 @@ namespace AuthenticationDemo.Data
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<Payment> Payments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -51,6 +52,28 @@ namespace AuthenticationDemo.Data
                 entity.Property(oi => oi.ProductId).IsRequired();
                 entity.Property(oi => oi.Quantity).IsRequired();
                 entity.Property(oi => oi.Price).IsRequired();
+            });
+
+            modelBuilder.Entity<Payment>(entity =>
+            {
+                entity.Property(p => p.UserId).IsRequired();
+                entity.Property(p => p.OrderId).IsRequired();
+                entity.Property(p => p.RazorpayPaymentId).IsRequired();
+                entity.Property(p => p.RazorpayOrderId).IsRequired();
+                entity.Property(p => p.Amount).IsRequired();
+                entity.Property(p => p.Currency).IsRequired();
+                entity.Property(p => p.Status).IsRequired();
+                entity.Property(p => p.CreatedAt).IsRequired();
+                
+                entity.HasIndex(p => p.RazorpayPaymentId).IsUnique();
+                entity.HasIndex(p => p.RazorpayOrderId).IsUnique();
+                
+                entity.HasOne(p => p.User)
+                      .WithMany()
+                      .HasForeignKey(p => p.UserId);
+                entity.HasOne(p => p.Order)
+                      .WithMany()
+                      .HasForeignKey(p => p.OrderId);
             });
         }
     }
