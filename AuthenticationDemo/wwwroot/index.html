@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Authentication Demo - Google OAuth</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .auth-section {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+      }
+      .auth-section h2 {
+        color: #555;
+        margin-top: 0;
+      }
+      button {
+        background-color: #4285f4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 5px;
+      }
+      button:hover {
+        background-color: #3367d6;
+      }
+      .google-btn {
+        background-color: #db4437;
+      }
+      .google-btn:hover {
+        background-color: #c23321;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔐 Authentication Demo</h1>
+
+      <div class="auth-section">
+        <h2>Google OAuth Flow</h2>
+        <p>This demonstrates the complete OAuth 2.0 flow with Google:</p>
+        <ol>
+          <li>Redirect user to Google for authorization</li>
+          <li>Handle the callback with authorization code</li>
+          <li>Exchange code for access tokens</li>
+          <li>Get user information and create JWT token</li>
+        </ol>
+
+        <button class="google-btn" onclick="startGoogleOAuth()">
+          🔑 Start Google OAuth Flow
+        </button>
+      </div>
+
+      <div class="auth-section">
+        <h2>Direct Google ID Token</h2>
+        <p>For client-side applications that already have a Google ID token:</p>
+        <input
+          type="text"
+          id="googleIdToken"
+          placeholder="Paste Google ID token here"
+          style="width: 100%; padding: 10px; margin: 10px 0"
+        />
+        <button onclick="validateGoogleToken()">Validate Google Token</button>
+      </div>
+
+      <div class="auth-section">
+        <h2>Test Protected Endpoints</h2>
+        <p>Test the authentication with protected endpoints:</p>
+        <input
+          type="text"
+          id="jwtToken"
+          placeholder="Paste JWT token here"
+          style="width: 100%; padding: 10px; margin: 10px 0"
+        />
+        <button onclick="testProfile()">Test Profile Endpoint</button>
+        <button onclick="testAdminOnly()">Test Admin Only</button>
+        <button onclick="testUserOnly()">Test User Only</button>
+      </div>
+
+      <div id="result" class="result" style="display: none"></div>
+    </div>
+
+    <script>
+      function showResult(content, type = "info") {
+        const resultDiv = document.getElementById("result");
+        resultDiv.textContent = content;
+        resultDiv.className = `result ${type}`;
+        resultDiv.style.display = "block";
+      }
+
+      function startGoogleOAuth() {
+        // Redirect to our backend endpoint that will redirect to Google
+        window.location.href = "/api/auth/google/redirect";
+      }
+
+      async function validateGoogleToken() {
+        const idToken = document.getElementById("googleIdToken").value;
+        if (!idToken) {
+          showResult("Please enter a Google ID token", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/google-to-jwt", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ idToken: idToken }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            document.getElementById("jwtToken").value = result.jwtToken;
+            showResult(JSON.stringify(result, null, 2), "success");
+          } else {
+            showResult(`Error: ${result.error}`, "error");
+          }
+        } catch (error) {
+          showResult(`Network error: ${error.message}`, "error");
+        }
+      }
+
+      async function testProfile() {
+        const token = document.getElementById("jwtToken").value;
+        if (!token) {
+          showResult("Please enter a JWT token first", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/profile", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            showResult(JSON.stringify(result, null, 2), "success");
+          } else {
+            showResult(`Error: ${result.error || "Unauthorized"}`, "error");
+          }
+        } catch (error) {
+          showResult(`Network error: ${error.message}`, "error");
+        }
+      }
+
+      async function testAdminOnly() {
+        const token = document.getElementById("jwtToken").value;
+        if (!token) {
+          showResult("Please enter a JWT token first", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/admin-only", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            showResult(JSON.stringify(result, null, 2), "success");
+          } else {
+            showResult(`Error: ${result.error || "Forbidden"}`, "error");
+          }
+        } catch (error) {
+          showResult(`Network error: ${error.message}`, "error");
+        }
+      }
+
+      async function testUserOnly() {
+        const token = document.getElementById("jwtToken").value;
+        if (!token) {
+          showResult("Please enter a JWT token first", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/user-only", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            showResult(JSON.stringify(result, null, 2), "success");
+          } else {
+            showResult(`Error: ${result.error || "Forbidden"}`, "error");
+          }
+        } catch (error) {
+          showResult(`Network error: ${error.message}`, "error");
+        }
+      }
+
+      // Check if we're returning from Google OAuth callback
+      window.onload = function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
+        const error = urlParams.get("error");
+
+        if (code) {
+          showResult(
+            "Authorization code received from Google. Processing...",
+            "info"
+          );
+          // The callback endpoint will handle the code exchange
+        } else if (error) {
+          showResult(`OAuth error: ${error}`, "error");
+        }
+      };
+    </script>
+  </body>
+</html>

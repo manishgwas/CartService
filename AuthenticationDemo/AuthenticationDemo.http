@@ -1,0 +1,47 @@
+@AuthenticationDemo_HostAddress = http://localhost:5051
+
+GET {{AuthenticationDemo_HostAddress}}/weatherforecast/
+Accept: application/json
+
+### Signup
+POST {{AuthenticationDemo_HostAddress}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "fullName": "Test User"
+}
+
+### Login
+POST {{AuthenticationDemo_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Password123!"
+}
+
+### Google Login
+POST {{AuthenticationDemo_HostAddress}}/api/auth/google-login
+Content-Type: application/json
+
+{
+  "idToken": "GOOGLE_ID_TOKEN"
+}
+
+### Refresh Token
+POST {{AuthenticationDemo_HostAddress}}/api/auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "REFRESH_TOKEN"
+}
+
+### Logout
+POST {{AuthenticationDemo_HostAddress}}/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "REFRESH_TOKEN"
+}
