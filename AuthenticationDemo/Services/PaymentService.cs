@@ -221,7 +221,7 @@ namespace AuthenticationDemo.Services
             return payments.Select(MapToPaymentResponseDto);
         }
 
-        public async Task<bool> ProcessWebhookAsync(string requestBody, string signature)
+        public async Task<object> ProcessWebhookAsync(string requestBody, Microsoft.AspNetCore.Http.IHeaderDictionary headers)
         {
             try
             {
@@ -230,26 +230,33 @@ namespace AuthenticationDemo.Services
                 
                 if (webhookData?.Payload?.Payment?.Entity == null)
                 {
-                    return false;
+                    return new { success = false, error = "Invalid webhook payload" };
                 }
 
                 var paymentEntity = webhookData.Payload.Payment.Entity;
                 var eventType = webhookData.Event;
 
+                // Extract signature from headers
+                var signature = headers["X-Razorpay-Signature"].ToString();
+                if (string.IsNullOrEmpty(signature))
+                {
+                    return new { success = false, error = "Missing webhook signature" };
+                }
+
                 // Verify webhook signature
-                var expectedSignature = webhookData.Payload.Payment.Entity.Id + "|" + webhookData.Payload.Payment.Entity.OrderId;
+                var expectedSignature = paymentEntity.Id + "|" + paymentEntity.OrderId;
                 var computedSignature = ComputeHmacSha256(expectedSignature, _razorpayKeySecret);
                 
                 if (computedSignature != signature)
                 {
-                    return false;
+                    return new { success = false, error = "Invalid webhook signature" };
                 }
 
                 // Find the payment in our database
                 var payment = await _paymentRepository.GetByRazorpayOrderIdAsync(paymentEntity.OrderId);
                 if (payment == null)
                 {
-                    return false;
+                    return new { success = false, error = "Payment not found" };
                 }
 
                 // Update payment based on event type
@@ -287,12 +294,12 @@ namespace AuthenticationDemo.Services
 
                 // Update the payment in database
                 await _paymentRepository.UpdateAsync(payment);
-                return true;
+                return new { success = true, message = "Webhook processed successfully" };
             }
             catch (Exception ex)
             {
                 // Log the exception
-                return false;
+                return new { success = false, error = ex.Message };
             }
         }
 

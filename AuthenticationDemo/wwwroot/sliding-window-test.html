@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sliding Window Rate Limiter Test</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .section {
+        margin-bottom: 30px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #fafafa;
+      }
+      .section h2 {
+        color: #555;
+        margin-top: 0;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #333;
+      }
+      input,
+      select,
+      button {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      .result {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      .rate-limit-info {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+      .stat-card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #007bff;
+      }
+      .stat-label {
+        color: #666;
+        font-size: 14px;
+      }
+      .headers-info {
+        background-color: #e9ecef;
+        border: 1px solid #dee2e6;
+        color: #495057;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚀 Sliding Window Rate Limiter Test</h1>
+
+      <div class="section">
+        <h2>📊 Rate Limiter Statistics</h2>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-value" id="totalRequests">0</div>
+            <div class="stat-label">Total Requests</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="successfulRequests">0</div>
+            <div class="stat-label">Successful</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="rateLimitedRequests">0</div>
+            <div class="stat-label">Rate Limited</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="errorRequests">0</div>
+            <div class="stat-label">Errors</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>🔐 Authentication Endpoints (IP-based rate limiting)</h2>
+        <div class="form-group">
+          <label for="authEndpoint">Select Endpoint:</label>
+          <select id="authEndpoint">
+            <option value="signup">Signup (5 req/min)</option>
+            <option value="login">Login (5 req/min)</option>
+            <option value="google-login">Google Login (5 req/min)</option>
+            <option value="refresh-token">Refresh Token (10 req/min)</option>
+            <option value="logout">Logout (10 req/min)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="authData">Request Data (JSON):</label>
+          <input
+            type="text"
+            id="authData"
+            value='{"email":"test@example.com","password":"password123"}'
+            placeholder="Enter JSON data"
+          />
+        </div>
+        <button onclick="testAuthEndpoint()">
+          Test Authentication Endpoint
+        </button>
+        <div id="authResult" class="result" style="display: none"></div>
+      </div>
+
+      <div class="section">
+        <h2>💳 Payment Endpoints (User-based rate limiting)</h2>
+        <div class="form-group">
+          <label for="paymentEndpoint">Select Endpoint:</label>
+          <select id="paymentEndpoint">
+            <option value="create">Create Payment (10 req/min)</option>
+            <option value="user">Get User Payments (30 req/min)</option>
+            <option value="verify">Verify Payment (10 req/min)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="paymentData">Request Data (JSON):</label>
+          <input
+            type="text"
+            id="paymentData"
+            value='{"amount":1000,"currency":"INR","orderId":1}'
+            placeholder="Enter JSON data"
+          />
+        </div>
+        <div class="form-group">
+          <label for="authToken"
+            >JWT Token (for user-based rate limiting):</label
+          >
+          <input
+            type="text"
+            id="authToken"
+            placeholder="Enter JWT token for user-based rate limiting"
+          />
+        </div>
+        <button onclick="testPaymentEndpoint()">Test Payment Endpoint</button>
+        <div id="paymentResult" class="result" style="display: none"></div>
+      </div>
+
+      <div class="section">
+        <h2>⚡ Bulk Request Testing</h2>
+        <div class="form-group">
+          <label for="bulkEndpoint">Endpoint:</label>
+          <select id="bulkEndpoint">
+            <option value="signup">Signup</option>
+            <option value="login">Login</option>
+            <option value="user">Get User Payments</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="bulkCount">Number of Requests:</label>
+          <input type="number" id="bulkCount" value="10" min="1" max="100" />
+        </div>
+        <div class="form-group">
+          <label for="bulkDelay">Delay between requests (ms):</label>
+          <input type="number" id="bulkDelay" value="100" min="0" max="5000" />
+        </div>
+        <button onclick="testBulkRequests()">Start Bulk Test</button>
+        <button onclick="stopBulkTest()" style="background-color: #dc3545">
+          Stop Test
+        </button>
+        <div id="bulkResult" class="result" style="display: none"></div>
+      </div>
+
+      <div class="section">
+        <h2>📋 Response Headers Analysis</h2>
+        <div
+          id="headersResult"
+          class="result headers-info"
+          style="display: none"
+        ></div>
+      </div>
+    </div>
+
+    <script>
+      let stats = {
+        total: 0,
+        successful: 0,
+        rateLimited: 0,
+        errors: 0,
+      };
+      let bulkTestRunning = false;
+
+      function updateStats() {
+        document.getElementById("totalRequests").textContent = stats.total;
+        document.getElementById("successfulRequests").textContent =
+          stats.successful;
+        document.getElementById("rateLimitedRequests").textContent =
+          stats.rateLimited;
+        document.getElementById("errorRequests").textContent = stats.errors;
+      }
+
+      function showResult(elementId, content, type = "info") {
+        const element = document.getElementById(elementId);
+        element.textContent = content;
+        element.className = `result ${type}`;
+        element.style.display = "block";
+      }
+
+      function analyzeHeaders(headers) {
+        const rateLimitHeaders = {};
+        for (const [key, value] of headers.entries()) {
+          if (key.toLowerCase().startsWith("x-ratelimit")) {
+            rateLimitHeaders[key] = value;
+          }
+        }
+        return rateLimitHeaders;
+      }
+
+      async function makeRequest(url, method, data, token = null) {
+        const options = {
+          method: method,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        };
+
+        if (token) {
+          options.headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        if (data) {
+          options.body = data;
+        }
+
+        try {
+          const response = await fetch(url, options);
+          const responseText = await response.text();
+
+          stats.total++;
+
+          let responseData;
+          try {
+            responseData = JSON.parse(responseText);
+          } catch {
+            responseData = { message: responseText };
+          }
+
+          const headers = analyzeHeaders(response.headers);
+
+          if (response.status === 429) {
+            stats.rateLimited++;
+            return {
+              success: false,
+              rateLimited: true,
+              data: responseData,
+              headers: headers,
+              status: response.status,
+            };
+          } else if (response.ok) {
+            stats.successful++;
+            return {
+              success: true,
+              data: responseData,
+              headers: headers,
+              status: response.status,
+            };
+          } else {
+            stats.errors++;
+            return {
+              success: false,
+              data: responseData,
+              headers: headers,
+              status: response.status,
+            };
+          }
+        } catch (error) {
+          stats.errors++;
+          return {
+            success: false,
+            error: error.message,
+          };
+        } finally {
+          updateStats();
+        }
+      }
+
+      async function testAuthEndpoint() {
+        const endpoint = document.getElementById("authEndpoint").value;
+        const data = document.getElementById("authData").value;
+
+        const result = await makeRequest(`/api/auth/${endpoint}`, "POST", data);
+
+        let resultText = `Endpoint: ${endpoint}\n`;
+        resultText += `Status: ${result.status}\n\n`;
+
+        if (result.rateLimited) {
+          resultText += `🚫 RATE LIMITED\n`;
+          resultText += `Message: ${result.data.message}\n`;
+          resultText += `Remaining Requests: ${result.data.remainingRequests}\n`;
+          resultText += `Reset Time: ${new Date(
+            result.data.resetTime * 1000
+          ).toLocaleString()}\n`;
+          resultText += `Retry After: ${result.data.retryAfter} seconds\n`;
+        } else if (result.success) {
+          resultText += `✅ SUCCESS\n`;
+          resultText += `Response: ${JSON.stringify(result.data, null, 2)}\n`;
+        } else {
+          resultText += `❌ ERROR\n`;
+          resultText += `Error: ${JSON.stringify(result.data, null, 2)}\n`;
+        }
+
+        if (result.headers && Object.keys(result.headers).length > 0) {
+          resultText += `\n📋 Rate Limit Headers:\n`;
+          resultText += JSON.stringify(result.headers, null, 2);
+        }
+
+        showResult(
+          "authResult",
+          resultText,
+          result.rateLimited ? "error" : result.success ? "success" : "error"
+        );
+      }
+
+      async function testPaymentEndpoint() {
+        const endpoint = document.getElementById("paymentEndpoint").value;
+        const data = document.getElementById("paymentData").value;
+        const token = document.getElementById("authToken").value;
+
+        if (!token) {
+          showResult(
+            "paymentResult",
+            "❌ ERROR\nJWT token is required for payment endpoints",
+            "error"
+          );
+          return;
+        }
+
+        const result = await makeRequest(
+          `/api/payment/${endpoint}`,
+          "POST",
+          data,
+          token
+        );
+
+        let resultText = `Endpoint: ${endpoint}\n`;
+        resultText += `Status: ${result.status}\n\n`;
+
+        if (result.rateLimited) {
+          resultText += `🚫 RATE LIMITED\n`;
+          resultText += `Message: ${result.data.message}\n`;
+          resultText += `Remaining Requests: ${result.data.remainingRequests}\n`;
+          resultText += `Reset Time: ${new Date(
+            result.data.resetTime * 1000
+          ).toLocaleString()}\n`;
+          resultText += `Retry After: ${result.data.retryAfter} seconds\n`;
+        } else if (result.success) {
+          resultText += `✅ SUCCESS\n`;
+          resultText += `Response: ${JSON.stringify(result.data, null, 2)}\n`;
+        } else {
+          resultText += `❌ ERROR\n`;
+          resultText += `Error: ${JSON.stringify(result.data, null, 2)}\n`;
+        }
+
+        if (result.headers && Object.keys(result.headers).length > 0) {
+          resultText += `\n📋 Rate Limit Headers:\n`;
+          resultText += JSON.stringify(result.headers, null, 2);
+        }
+
+        showResult(
+          "paymentResult",
+          resultText,
+          result.rateLimited ? "error" : result.success ? "success" : "error"
+        );
+      }
+
+      async function testBulkRequests() {
+        if (bulkTestRunning) return;
+
+        const endpoint = document.getElementById("bulkEndpoint").value;
+        const count = parseInt(document.getElementById("bulkCount").value);
+        const delay = parseInt(document.getElementById("bulkDelay").value);
+
+        bulkTestRunning = true;
+        let results = [];
+
+        showResult("bulkResult", "🚀 Starting bulk test...\n", "info");
+
+        for (let i = 0; i < count && bulkTestRunning; i++) {
+          const data =
+            endpoint === "user"
+              ? null
+              : '{"email":"test@example.com","password":"password123"}';
+          const token =
+            endpoint === "user"
+              ? document.getElementById("authToken").value
+              : null;
+
+          const result = await makeRequest(
+            `/api/${endpoint === "user" ? "payment/user" : `auth/${endpoint}`}`,
+            "POST",
+            data,
+            token
+          );
+
+          results.push({
+            request: i + 1,
+            success: result.success,
+            rateLimited: result.rateLimited,
+            status: result.status,
+          });
+
+          const currentText = document.getElementById("bulkResult").textContent;
+          const newText =
+            currentText +
+            `Request ${i + 1}: ${
+              result.rateLimited
+                ? "🚫 RATE LIMITED"
+                : result.success
+                ? "✅ SUCCESS"
+                : "❌ ERROR"
+            } (${result.status})\n`;
+          showResult("bulkResult", newText, "info");
+
+          if (delay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+
+        const summary = results.reduce(
+          (acc, r) => {
+            if (r.rateLimited) acc.rateLimited++;
+            else if (r.success) acc.success++;
+            else acc.errors++;
+            return acc;
+          },
+          { success: 0, rateLimited: 0, errors: 0 }
+        );
+
+        const finalText =
+          document.getElementById("bulkResult").textContent +
+          `\n📊 SUMMARY:\n` +
+          `Total: ${results.length}\n` +
+          `Successful: ${summary.success}\n` +
+          `Rate Limited: ${summary.rateLimited}\n` +
+          `Errors: ${summary.errors}\n`;
+
+        showResult("bulkResult", finalText, "info");
+        bulkTestRunning = false;
+      }
+
+      function stopBulkTest() {
+        bulkTestRunning = false;
+        showResult(
+          "bulkResult",
+          document.getElementById("bulkResult").textContent +
+            "\n⏹️ Test stopped by user",
+          "info"
+        );
+      }
+
+      // Initialize stats
+      updateStats();
+    </script>
+  </body>
+</html>

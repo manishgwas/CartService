@@ -5,6 +5,7 @@ using AuthenticationDemo.Services;
 using AuthenticationDemo.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using AuthenticationDemo.Attributes;
 
 namespace AuthenticationDemo.Controllers
 {
@@ -19,6 +20,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("signup")]
+        [SlidingWindowRateLimit(5, 60, "ip")] // 5 requests per minute per IP
         public async Task<IActionResult> Signup([FromBody] SignupRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -37,6 +39,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("login")]
+        [SlidingWindowRateLimit(5, 60, "ip")] // 5 requests per minute per IP
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -55,6 +58,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("google-login")]
+        [SlidingWindowRateLimit(5, 60, "ip")] // 5 requests per minute per IP
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -73,6 +77,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("refresh-token")]
+        [SlidingWindowRateLimit(10, 60, "ip")] // 10 requests per minute per IP
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -91,6 +96,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("logout")]
+        [SlidingWindowRateLimit(10, 60, "ip")] // 10 requests per minute per IP
         public async Task<IActionResult> Logout([FromBody] LogoutRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -109,6 +115,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("google-to-jwt")]
+        [SlidingWindowRateLimit(5, 60, "ip")] // 5 requests per minute per IP
         public async Task<IActionResult> ConvertGoogleToJwt([FromBody] GoogleLoginRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -176,6 +183,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("google/redirect")]
+        [SlidingWindowRateLimit(5, 60, "ip")] // 5 requests per minute per IP
         public IActionResult GoogleRedirect()
         {
             var clientId = _authService.GetGoogleClientId();
@@ -195,6 +203,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("google/callback")]
+        [SlidingWindowRateLimit(5, 60, "ip")] // 5 requests per minute per IP
         public async Task<IActionResult> GoogleCallback([FromQuery] string code, [FromQuery] string error)
         {
             if (!string.IsNullOrEmpty(error))

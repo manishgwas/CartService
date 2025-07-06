@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AuthenticationDemo.DTOs;
+using Microsoft.AspNetCore.Http;
 
 namespace AuthenticationDemo.Services
 {
@@ -17,6 +18,6 @@ namespace AuthenticationDemo.Services
         Task<RazorpayOrderResponseDto> CreateRazorpayOrderAsync(CreatePaymentRequestDto request);
         Task<IEnumerable<PaymentResponseDto>> GetAllPaymentsAsync();
         Task<IEnumerable<PaymentResponseDto>> GetPaymentsByStatusAsync(string status);
-        Task<bool> ProcessWebhookAsync(string requestBody, string signature);
+        Task<object> ProcessWebhookAsync(string requestBody, IHeaderDictionary headers);
     }
 } 

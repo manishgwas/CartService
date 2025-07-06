@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System;
 using System.IO;
+using AuthenticationDemo.Attributes;
 
 namespace AuthenticationDemo.Controllers
 {
@@ -21,6 +22,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("create")]
+        [SlidingWindowRateLimit(10, 60, "userid")] // 10 requests per minute per user
         public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -46,6 +48,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("{id}")]
+        [SlidingWindowRateLimit(20, 60, "userid")] // 20 requests per minute per user
         public async Task<IActionResult> GetPayment(int id)
         {
             try
@@ -60,6 +63,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("razorpay/{razorpayPaymentId}")]
+        [SlidingWindowRateLimit(20, 60, "userid")] // 20 requests per minute per user
         public async Task<IActionResult> GetPaymentByRazorpayId(string razorpayPaymentId)
         {
             try
@@ -74,6 +78,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("user")]
+        [SlidingWindowRateLimit(30, 60, "userid")] // 30 requests per minute per user
         public async Task<IActionResult> GetUserPayments()
         {
             try
@@ -94,6 +99,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("order/{orderId}")]
+        [SlidingWindowRateLimit(20, 60, "userid")] // 20 requests per minute per user
         public async Task<IActionResult> GetOrderPayments(int orderId)
         {
             try
@@ -109,6 +115,7 @@ namespace AuthenticationDemo.Controllers
 
         [HttpPost("capture")]
         [Authorize(Roles = "Admin")]
+        [SlidingWindowRateLimit(5, 60, "userid")] // 5 requests per minute per admin user
         public async Task<IActionResult> CapturePayment([FromBody] CapturePaymentRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -129,6 +136,7 @@ namespace AuthenticationDemo.Controllers
 
         [HttpPost("refund")]
         [Authorize(Roles = "Admin")]
+        [SlidingWindowRateLimit(5, 60, "userid")] // 5 requests per minute per admin user
         public async Task<IActionResult> RefundPayment([FromBody] RefundPaymentRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -148,6 +156,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpPost("verify")]
+        [SlidingWindowRateLimit(10, 60, "userid")] // 10 requests per minute per user
         public async Task<IActionResult> VerifyPayment([FromBody] PaymentVerificationDto request)
         {
             if (!ModelState.IsValid)
@@ -168,6 +177,7 @@ namespace AuthenticationDemo.Controllers
 
         [HttpGet("all")]
         [Authorize(Roles = "Admin")]
+        [SlidingWindowRateLimit(10, 60, "userid")] // 10 requests per minute per admin user
         public async Task<IActionResult> GetAllPayments()
         {
             try
@@ -183,6 +193,7 @@ namespace AuthenticationDemo.Controllers
 
         [HttpGet("status/{status}")]
         [Authorize(Roles = "Admin")]
+        [SlidingWindowRateLimit(10, 60, "userid")] // 10 requests per minute per admin user
         public async Task<IActionResult> GetPaymentsByStatus(string status)
         {
             try
@@ -198,33 +209,16 @@ namespace AuthenticationDemo.Controllers
 
         [HttpPost("webhook")]
         [AllowAnonymous]
-        public async Task<IActionResult> PaymentWebhook()
+        [SlidingWindowRateLimit(50, 60, "ip")] // 50 requests per minute per IP for webhooks
+        public async Task<IActionResult> Webhook()
         {
             try
             {
-                // Read the request body
                 using var reader = new StreamReader(Request.Body);
-                var requestBody = await reader.ReadToEndAsync();
+                var payload = await reader.ReadToEndAsync();
                 
-                // Get the signature from headers
-                var signature = Request.Headers["X-Razorpay-Signature"].ToString();
-                
-                if (string.IsNullOrEmpty(signature))
-                {
-                    return BadRequest(new { error = "Missing webhook signature" });
-                }
-                
-                // Process the webhook
-                var success = await _paymentService.ProcessWebhookAsync(requestBody, signature);
-                
-                if (success)
-                {
-                    return Ok(new { message = "Webhook processed successfully" });
-                }
-                else
-                {
-                    return BadRequest(new { error = "Failed to process webhook" });
-                }
+                var result = await _paymentService.ProcessWebhookAsync(payload, Request.Headers);
+                return Ok(result);
             }
             catch (Exception ex)
             {
