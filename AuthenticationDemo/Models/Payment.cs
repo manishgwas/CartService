@@ -12,7 +12,7 @@ namespace AuthenticationDemo.Models
         public string UserId { get; set; }
         
         [Required]
-        public string OrderId { get; set; }
+        public int OrderId { get; set; }
         
         [Required]
         public string RazorpayPaymentId { get; set; }

@@ -1,10 +1,10 @@
-using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
-using AuthenticationDemo.Services;
 using AuthenticationDemo.DTOs;
+using AuthenticationDemo.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using System;
+using System.IO;
 
 namespace AuthenticationDemo.Controllers
 {
@@ -94,7 +94,7 @@ namespace AuthenticationDemo.Controllers
         }
 
         [HttpGet("order/{orderId}")]
-        public async Task<IActionResult> GetOrderPayments(string orderId)
+        public async Task<IActionResult> GetOrderPayments(int orderId)
         {
             try
             {
@@ -203,30 +203,27 @@ namespace AuthenticationDemo.Controllers
             try
             {
                 // Read the request body
-                var requestBody = await Request.Body.ReadAsStringAsync();
+                using var reader = new StreamReader(Request.Body);
+                var requestBody = await reader.ReadToEndAsync();
                 
                 // Get the signature from headers
                 var signature = Request.Headers["X-Razorpay-Signature"].ToString();
                 
-                // Verify the webhook signature
-                var verificationDto = new PaymentVerificationDto
+                if (string.IsNullOrEmpty(signature))
                 {
-                    RazorpayPaymentId = "", // Extract from request body
-                    RazorpayOrderId = "", // Extract from request body
-                    RazorpaySignature = signature
-                };
+                    return BadRequest(new { error = "Missing webhook signature" });
+                }
                 
-                var isValid = await _paymentService.VerifyPaymentSignatureAsync(verificationDto);
+                // Process the webhook
+                var success = await _paymentService.ProcessWebhookAsync(requestBody, signature);
                 
-                if (isValid)
+                if (success)
                 {
-                    // Process the webhook
-                    // Update payment status based on webhook event
                     return Ok(new { message = "Webhook processed successfully" });
                 }
                 else
                 {
-                    return BadRequest(new { error = "Invalid webhook signature" });
+                    return BadRequest(new { error = "Failed to process webhook" });
                 }
             }
             catch (Exception ex)

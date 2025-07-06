@@ -1,14 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AuthenticationDemo.DTOs;
 using AuthenticationDemo.Models;
 using AuthenticationDemo.Repositories;
-using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 using System.Text;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -50,7 +44,7 @@ namespace AuthenticationDemo.Services
             if (order == null)
                 throw new InvalidOperationException("Order not found");
             
-            if (order.UserId != userId)
+            if (order.UserId != int.Parse(userId))
                 throw new UnauthorizedAccessException("Order does not belong to user");
 
             // Create Razorpay order
@@ -100,7 +94,7 @@ namespace AuthenticationDemo.Services
             return payments.Select(MapToPaymentResponseDto);
         }
 
-        public async Task<IEnumerable<PaymentResponseDto>> GetPaymentsByOrderIdAsync(string orderId)
+        public async Task<IEnumerable<PaymentResponseDto>> GetPaymentsByOrderIdAsync(int orderId)
         {
             var payments = await _paymentRepository.GetByOrderIdAsync(orderId);
             return payments.Select(MapToPaymentResponseDto);
@@ -227,6 +221,81 @@ namespace AuthenticationDemo.Services
             return payments.Select(MapToPaymentResponseDto);
         }
 
+        public async Task<bool> ProcessWebhookAsync(string requestBody, string signature)
+        {
+            try
+            {
+                // Parse the webhook payload
+                var webhookData = JsonSerializer.Deserialize<RazorpayWebhookPayload>(requestBody);
+                
+                if (webhookData?.Payload?.Payment?.Entity == null)
+                {
+                    return false;
+                }
+
+                var paymentEntity = webhookData.Payload.Payment.Entity;
+                var eventType = webhookData.Event;
+
+                // Verify webhook signature
+                var expectedSignature = webhookData.Payload.Payment.Entity.Id + "|" + webhookData.Payload.Payment.Entity.OrderId;
+                var computedSignature = ComputeHmacSha256(expectedSignature, _razorpayKeySecret);
+                
+                if (computedSignature != signature)
+                {
+                    return false;
+                }
+
+                // Find the payment in our database
+                var payment = await _paymentRepository.GetByRazorpayOrderIdAsync(paymentEntity.OrderId);
+                if (payment == null)
+                {
+                    return false;
+                }
+
+                // Update payment based on event type
+                switch (eventType)
+                {
+                    case "payment.captured":
+                        payment.Status = "captured";
+                        payment.RazorpayPaymentId = paymentEntity.Id;
+                        payment.CapturedAt = DateTime.UtcNow;
+                        payment.Method = paymentEntity.Method;
+                        payment.Email = paymentEntity.Email;
+                        payment.Contact = paymentEntity.Contact;
+                        break;
+
+                    case "payment.failed":
+                        payment.Status = "failed";
+                        break;
+
+                    case "refund.processed":
+                        payment.Status = "refunded";
+                        break;
+
+                    case "payment.authorized":
+                        payment.Status = "authorized";
+                        payment.RazorpayPaymentId = paymentEntity.Id;
+                        payment.Method = paymentEntity.Method;
+                        payment.Email = paymentEntity.Email;
+                        payment.Contact = paymentEntity.Contact;
+                        break;
+
+                    default:
+                        // Log unknown event type
+                        break;
+                }
+
+                // Update the payment in database
+                await _paymentRepository.UpdateAsync(payment);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                return false;
+            }
+        }
+
         private PaymentResponseDto MapToPaymentResponseDto(Payment payment)
         {
             return new PaymentResponseDto
@@ -267,5 +336,47 @@ namespace AuthenticationDemo.Services
         
         [JsonPropertyName("contact")]
         public string Contact { get; set; }
+    }
+
+    public class RazorpayWebhookPayload
+    {
+        [JsonPropertyName("event")]
+        public string Event { get; set; }
+        
+        [JsonPropertyName("payload")]
+        public WebhookPayload Payload { get; set; }
+    }
+
+    public class WebhookPayload
+    {
+        [JsonPropertyName("payment")]
+        public PaymentWebhook Payment { get; set; }
+    }
+
+    public class PaymentWebhook
+    {
+        [JsonPropertyName("entity")]
+        public PaymentEntity Entity { get; set; }
+    }
+
+    public class PaymentEntity
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+        
+        [JsonPropertyName("order_id")]
+        public string OrderId { get; set; }
+        
+        [JsonPropertyName("method")]
+        public string Method { get; set; }
+        
+        [JsonPropertyName("email")]
+        public string Email { get; set; }
+        
+        [JsonPropertyName("contact")]
+        public string Contact { get; set; }
+        
+        [JsonPropertyName("status")]
+        public string Status { get; set; }
     }
 } 

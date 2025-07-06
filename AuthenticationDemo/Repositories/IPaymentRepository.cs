@@ -12,7 +12,7 @@ namespace AuthenticationDemo.Repositories
         Task<Payment> GetByRazorpayPaymentIdAsync(string razorpayPaymentId);
         Task<Payment> GetByRazorpayOrderIdAsync(string razorpayOrderId);
         Task<IEnumerable<Payment>> GetByUserIdAsync(string userId);
-        Task<IEnumerable<Payment>> GetByOrderIdAsync(string orderId);
+        Task<IEnumerable<Payment>> GetByOrderIdAsync(int orderId);
         Task<Payment> UpdateAsync(Payment payment);
         Task<bool> DeleteAsync(int id);
         Task<IEnumerable<Payment>> GetAllAsync();

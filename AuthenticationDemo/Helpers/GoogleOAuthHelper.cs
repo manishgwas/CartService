@@ -1,7 +1,6 @@
-using System.Threading.Tasks;
 using Google.Apis.Auth;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
 
 namespace AuthenticationDemo.Helpers
 {

@@ -57,7 +57,7 @@ namespace AuthenticationDemo.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Payment>> GetByOrderIdAsync(string orderId)
+        public async Task<IEnumerable<Payment>> GetByOrderIdAsync(int orderId)
         {
             return await _context.Payments
                 .Include(p => p.User)

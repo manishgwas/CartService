@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Webhook Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .form-group {
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+      textarea {
+        height: 200px;
+        font-family: monospace;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-right: 10px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        white-space: pre-wrap;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Webhook Test</h1>
+      <p>
+        This page allows you to test the webhook functionality by sending test
+        webhook payloads to your application.
+      </p>
+
+      <div class="form-group">
+        <label for="eventType">Event Type:</label>
+        <select id="eventType">
+          <option value="payment.captured">Payment Captured</option>
+          <option value="payment.failed">Payment Failed</option>
+          <option value="payment.authorized">Payment Authorized</option>
+          <option value="refund.processed">Refund Processed</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="razorpayOrderId">Razorpay Order ID:</label>
+        <input
+          type="text"
+          id="razorpayOrderId"
+          placeholder="order_..."
+          value="order_test123"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="razorpayPaymentId">Razorpay Payment ID:</label>
+        <input
+          type="text"
+          id="razorpayPaymentId"
+          placeholder="pay_..."
+          value="pay_test123"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="webhookPayload">Webhook Payload (JSON):</label>
+        <textarea id="webhookPayload" readonly></textarea>
+      </div>
+
+      <button onclick="generatePayload()">Generate Payload</button>
+      <button onclick="sendWebhook()">Send Webhook</button>
+
+      <div id="result" class="result" style="display: none"></div>
+    </div>
+
+    <script>
+      const baseUrl = window.location.origin;
+
+      function generatePayload() {
+        const eventType = document.getElementById("eventType").value;
+        const orderId = document.getElementById("razorpayOrderId").value;
+        const paymentId = document.getElementById("razorpayPaymentId").value;
+
+        const payload = {
+          event: eventType,
+          payload: {
+            payment: {
+              entity: {
+                id: paymentId,
+                order_id: orderId,
+                method: "card",
+                email: "test@example.com",
+                contact: "+919876543210",
+                status:
+                  eventType === "payment.captured"
+                    ? "captured"
+                    : eventType === "payment.failed"
+                    ? "failed"
+                    : eventType === "payment.authorized"
+                    ? "authorized"
+                    : "refunded",
+              },
+            },
+          },
+        };
+
+        document.getElementById("webhookPayload").value = JSON.stringify(
+          payload,
+          null,
+          2
+        );
+      }
+
+      async function sendWebhook() {
+        const payload = document.getElementById("webhookPayload").value;
+        const resultDiv = document.getElementById("result");
+
+        if (!payload) {
+          showResult("Please generate a payload first", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${baseUrl}/api/payment/webhook`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Razorpay-Signature": "test_signature", // In real scenario, this would be computed
+            },
+            body: payload,
+          });
+
+          const result = await response.text();
+
+          if (response.ok) {
+            showResult(
+              `Webhook sent successfully!\nResponse: ${result}`,
+              "success"
+            );
+          } else {
+            showResult(
+              `Webhook failed!\nStatus: ${response.status}\nResponse: ${result}`,
+              "error"
+            );
+          }
+        } catch (error) {
+          showResult(`Error sending webhook: ${error.message}`, "error");
+        }
+      }
+
+      function showResult(message, type) {
+        const resultDiv = document.getElementById("result");
+        resultDiv.textContent = message;
+        resultDiv.className = `result ${type}`;
+        resultDiv.style.display = "block";
+      }
+
+      // Generate initial payload
+      generatePayload();
+    </script>
+  </body>
+</html>

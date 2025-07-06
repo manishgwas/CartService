@@ -6,7 +6,7 @@ namespace AuthenticationDemo.DTOs
     public class CreatePaymentRequestDto
     {
         [Required]
-        public string OrderId { get; set; }
+        public int OrderId { get; set; }
         
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
@@ -27,7 +27,7 @@ namespace AuthenticationDemo.DTOs
     {
         public int Id { get; set; }
         public string UserId { get; set; }
-        public string OrderId { get; set; }
+        public int OrderId { get; set; }
         public string RazorpayPaymentId { get; set; }
         public string RazorpayOrderId { get; set; }
         public decimal Amount { get; set; }
