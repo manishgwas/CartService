@@ -1,11 +1,9 @@
-using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using AuthenticationDemo.Services;
-using AuthenticationDemo.DTOs;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 using AuthenticationDemo.Attributes;
+using AuthenticationDemo.DTOs;
+using AuthenticationDemo.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AuthenticationDemo.Controllers
 {
